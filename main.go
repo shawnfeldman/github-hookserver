@@ -1,20 +1,28 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 
+	github "github.com/google/go-github/github"
 	log "github.com/sirupsen/logrus"
 )
 
-var port *int
+var (
+	port         *int
+	secret       *string
+	printBody    *bool
+	printHeaders *bool
+)
 
 func init() {
 	port = flag.Int("port", 8000, "add port to serve")
+	secret = flag.String("secret", "", "add a secret")
+	printBody = flag.Bool("body", false, "print body?")
+	printHeaders = flag.Bool("headers", false, "print header?")
+
 	log.SetFormatter(&log.JSONFormatter{PrettyPrint: true})
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.InfoLevel)
@@ -27,23 +35,43 @@ func main() {
 			"method":      r.Method,
 			"path":        r.URL.Path,
 		})
-		if r.Body != nil {
-			b, err := ioutil.ReadAll(r.Body)
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				l.WithError(err).Warn("failed to read body")
-				return
-			}
-			var m map[string]interface{}
-			err = json.Unmarshal(b, &m)
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte("couldn't parse body."))
-				l.WithError(err).WithField("body", string(b)).Warn("failed to parse body")
-				return
-			}
-			l.WithField("body", m).Info("parsed body")
+
+		if *printHeaders {
+			l = l.WithField("headers", r.Header)
 		}
+
+		payload, err := github.ValidatePayload(r, []byte(*secret))
+		if err != nil {
+			l = l.WithField("validation_error", err)
+		}
+		event, err := github.ParseWebHook(github.WebHookType(r), payload)
+		if err != nil {
+			l.WithError(err).Error("could not parse webhook")
+			return
+		}
+
+		// switch e := event.(type) {
+		// case *github.PushEvent:
+		// 	// this is a commit push, do something with it
+		// case *github.PullRequestEvent:
+		// 	// this is a pull request, do something with it
+		// case *github.WatchEvent:
+		// 	// https://developer.github.com/v3/activity/events/types/#watchevent
+		// 	// someone starred our repository
+		// 	if e.Action != nil && *e.Action == "starred" {
+		// 		fmt.Printf("%s starred repository %s\n",
+		// 			*e.Sender.Login, *e.Repo.FullName)
+		// 	}
+		// default:
+
+		// 	return
+		// }
+
+		if *printBody {
+			l = l.WithField("body", event)
+		}
+
+		l.Info("done.")
 		w.WriteHeader(http.StatusAccepted)
 		w.Write([]byte("Accepted."))
 	})
