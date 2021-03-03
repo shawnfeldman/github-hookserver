@@ -29,6 +29,7 @@ func init() {
 }
 
 func main() {
+	flag.Parse()
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		l := log.WithFields(log.Fields{
 			"request_uri": r.RequestURI,
@@ -40,32 +41,28 @@ func main() {
 			l = l.WithField("headers", r.Header)
 		}
 
+		fmt.Println(fmt.Sprintf("mysecret %s", *secret))
 		payload, err := github.ValidatePayload(r, []byte(*secret))
 		if err != nil {
 			l = l.WithField("validation_error", err)
 		}
+
 		event, err := github.ParseWebHook(github.WebHookType(r), payload)
 		if err != nil {
 			l.WithError(err).Error("could not parse webhook")
 			return
 		}
 
-		// switch e := event.(type) {
-		// case *github.PushEvent:
-		// 	// this is a commit push, do something with it
-		// case *github.PullRequestEvent:
-		// 	// this is a pull request, do something with it
-		// case *github.WatchEvent:
-		// 	// https://developer.github.com/v3/activity/events/types/#watchevent
-		// 	// someone starred our repository
-		// 	if e.Action != nil && *e.Action == "starred" {
-		// 		fmt.Printf("%s starred repository %s\n",
-		// 			*e.Sender.Login, *e.Repo.FullName)
-		// 	}
-		// default:
-
-		// 	return
-		// }
+		switch event.(type) {
+		case *github.PushEvent:
+			l = l.WithField("event_type", "push")
+		case *github.PullRequestEvent:
+			l = l.WithField("event_type", "pull")
+		case *github.WatchEvent:
+			l = l.WithField("event_type", "watch")
+		default:
+			l = l.WithField("event_type", "unknown")
+		}
 
 		if *printBody {
 			l = l.WithField("body", event)
