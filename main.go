@@ -73,7 +73,7 @@ func main() {
 
 		fmt.Printf("mysecret %s /n", *secret)
 		var payload []byte
-		payload, err = github.ValidatePayload(r, []byte(*secret))
+		payload, err = ValidatePayload(r, []byte(*secret), *validate)
 		if err != nil {
 			l.WithError(err).Error("could validate body")
 			return
