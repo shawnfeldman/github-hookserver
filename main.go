@@ -119,7 +119,7 @@ func main() {
 	http.ListenAndServe(fmt.Sprintf(":%d", *port), nil)
 }
 
-func ValidatePayload(r *http.Request, secretKey []byte) (payload []byte, err error) {
+func ValidatePayload(r *http.Request, secretKey []byte, validate bool) (payload []byte, err error) {
 	var body []byte // Raw body that GitHub uses to calculate the signature.
 
 	switch ct := r.Header.Get("Content-Type"); ct {
@@ -154,11 +154,13 @@ func ValidatePayload(r *http.Request, secretKey []byte) (payload []byte, err err
 	default:
 		return nil, fmt.Errorf("Webhook request has unsupported Content-Type %q", ct)
 	}
-
-	sig := r.Header.Get(signatureHeader)
-	if err := validateSignature(sig, body, secretKey); err != nil {
-		return nil, err
+	if validate {
+		sig := r.Header.Get(signatureHeader)
+		if err := validateSignature(sig, body, secretKey); err != nil {
+			return nil, err
+		}
 	}
+
 	return payload, nil
 }
 func validateSignature(signature string, payload, secretKey []byte) error {
