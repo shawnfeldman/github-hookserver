@@ -24,7 +24,7 @@ var (
 func init() {
 	port = flag.Int("port", 8000, "add port to serve")
 	secret = flag.String("secret", "", "add a secret")
-	validate = flag.Bool("validate", false, "validate the request")
+	validate = flag.Bool("validate", true, "validate the request")
 	printBody = flag.Bool("body", false, "print body?")
 	timeout = flag.Bool("timeout", false, "timeout?")
 	printHeaders = flag.Bool("headers", false, "print header?")
