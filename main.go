@@ -39,6 +39,7 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		if *timeout {
+			log.Infof("%s %s", r.Method, r.URL.Path)
 			time.Sleep(time.Second * 240)
 		}
 		l := log.WithFields(log.Fields{
