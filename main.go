@@ -73,20 +73,12 @@ func main() {
 
 		fmt.Printf("mysecret %s /n", *secret)
 		var payload []byte
-		if *validate {
-			payload, err = github.ValidatePayload(r, []byte(*secret))
-			if err != nil {
-				l.WithError(err).Error("could validate body")
-				return
-			}
-		} else {
-			payload, err = ioutil.ReadAll(r.Body)
-			if err != nil {
-				l = l.WithField("body_error", err)
-				l.WithError(err).Error("could ready body")
-				return
-			}
+		payload, err = github.ValidatePayload(r, []byte(*secret))
+		if err != nil {
+			l.WithError(err).Error("could validate body")
+			return
 		}
+
 		event, err := github.ParseWebHook(github.WebHookType(r), payload)
 		if err != nil {
 			l.WithError(err).Error("could not parse webhook")
