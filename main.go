@@ -3,8 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
+	"time"
 
 	github "github.com/google/go-github/github"
 	log "github.com/sirupsen/logrus"
@@ -15,12 +17,16 @@ var (
 	secret       *string
 	printBody    *bool
 	printHeaders *bool
+	timeout      *bool
+	validate     *bool
 )
 
 func init() {
 	port = flag.Int("port", 8000, "add port to serve")
 	secret = flag.String("secret", "", "add a secret")
+	validate = flag.Bool("validate", false, "validate the request")
 	printBody = flag.Bool("body", false, "print body?")
+	timeout = flag.Bool("timeout", false, "timeout?")
 	printHeaders = flag.Bool("headers", false, "print header?")
 
 	log.SetFormatter(&log.JSONFormatter{PrettyPrint: true})
@@ -31,6 +37,10 @@ func init() {
 func main() {
 	flag.Parse()
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		if *timeout {
+			time.Sleep(time.Second * 240)
+		}
 		l := log.WithFields(log.Fields{
 			"request_uri": r.RequestURI,
 			"method":      r.Method,
@@ -41,12 +51,22 @@ func main() {
 			l = l.WithField("headers", r.Header)
 		}
 
-		fmt.Println(fmt.Sprintf("mysecret %s", *secret))
-		payload, err := github.ValidatePayload(r, []byte(*secret))
-		if err != nil {
-			l = l.WithField("validation_error", err)
+		fmt.Printf("mysecret %s /n", *secret)
+		var payload []byte
+		if *validate {
+			payload, err = github.ValidatePayload(r, []byte(*secret))
+			if err != nil {
+				l.WithError(err).Error("could validate body")
+				return
+			}
+		} else {
+			payload, err = ioutil.ReadAll(r.Body)
+			if err != nil {
+				l = l.WithField("body_error", err)
+				l.WithError(err).Error("could ready body")
+				return
+			}
 		}
-
 		event, err := github.ParseWebHook(github.WebHookType(r), payload)
 		if err != nil {
 			l.WithError(err).Error("could not parse webhook")
